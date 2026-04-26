@@ -42,7 +42,11 @@ echo [4/5] Copying model files and generating player.csv...
 if not exist "dist\model" mkdir "dist\model"
 copy /y "model\captcha_model.onnx" "dist\model\" >nul
 copy /y "model\captcha_model_metadata.json" "dist\model\" >nul
-type nul > "dist\player.csv"
+type nul > "dist\playerR0.csv"
+type nul > "dist\playerR1.csv"
+type nul > "dist\playerR2.csv"
+type nul > "dist\playerR3.csv"
+type nul > "dist\playerR4R5.csv"
 
 echo Verifying dist structure...
 if not exist "dist\WOSGiftCodeTool.exe" (

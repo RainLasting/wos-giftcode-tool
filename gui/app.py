@@ -10,6 +10,7 @@ from core import GiftCodeRedeemer, ONNX_AVAILABLE, LOGIN_URL
 from scraper import GiftCodeScraper, BS4_AVAILABLE
 from .idlist import PlayerListSidebar
 from .widgets import PLAYER_FILES, RIGHT_SIDEBAR_WIDTH, WIKI_GIFTCODES_URL, WIKI_HOME_URL
+from utils import LogManager
 
 
 class GiftCodeApp:
@@ -131,6 +132,17 @@ class GiftCodeApp:
 
         log_frame = ttk.LabelFrame(self.main_frame, text="日志输出", padding=4)
         log_frame.pack(fill=tk.BOTH, expand=True)
+
+        log_btn_row = ttk.Frame(log_frame)
+        log_btn_row.pack(fill=tk.X, pady=(0, 4))
+
+        self.clear_log_btn = ttk.Button(log_btn_row, text="🗑️ 清理日志",
+                                        command=self._clear_logs)
+        self.clear_log_btn.pack(side=tk.RIGHT)
+
+        self.log_info_label = ttk.Label(log_btn_row, text="", foreground="gray")
+        self.log_info_label.pack(side=tk.RIGHT, padx=(0, 8))
+        self.root.after(500, self._update_log_info)
 
         self.log_text = scrolledtext.ScrolledText(log_frame, height=12, state=tk.DISABLED,
                                                    font=("Consolas", 9), wrap=tk.WORD)
@@ -429,3 +441,53 @@ class GiftCodeApp:
                 f"总耗时：{summary['execution_time']}"
             )
             messagebox.showinfo("兑换完成 - 汇总报告", msg)
+
+    def _get_log_manager(self):
+        return LogManager(self.app_path)
+
+    def _update_log_info(self):
+        try:
+            lm = self._get_log_manager()
+            info = lm.get_log_info()
+            if info.get("exists"):
+                text = f"日志: {info['size_mb']}MB ({info['line_count']} 条)"
+            else:
+                text = "日志: 无"
+            self.log_info_label.configure(text=text)
+        except Exception:
+            self.log_info_label.configure(text="")
+        self.root.after(5000, self._update_log_info)
+
+    def _clear_logs(self):
+        lm = self._get_log_manager()
+        info = lm.get_log_info()
+
+        if not info.get("exists"):
+            messagebox.showinfo("清理日志", "日志文件不存在，无需清理。")
+            return
+
+        self.clear_log_btn.configure(state=tk.DISABLED)
+
+        def do_clean():
+            try:
+                result = lm.clean_auto()
+                total_deleted = 0
+                for method, res in result:
+                    if res.get("deleted"):
+                        total_deleted += res.get("deleted", 0)
+
+                if total_deleted > 0:
+                    msg = f"日志清理完成！\n\n删除了 {total_deleted} 条过期记录"
+                else:
+                    msg = "日志文件当前无需清理\n（所有记录都在保留期限内）"
+            except Exception as e:
+                msg = f"清理失败：{str(e)}"
+
+            def show_result():
+                self.clear_log_btn.configure(state=tk.NORMAL)
+                messagebox.showinfo("清理日志", msg)
+                self._update_log_info()
+
+            self.root.after(0, show_result)
+
+        threading.Thread(target=do_clean, daemon=True).start()
