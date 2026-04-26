@@ -1,0 +1,8 @@
+*.csv
+*redeemed_codes*
+failed_*
+*venv*
+captcha_images
+dist
+*.pyc
+__pycache__
