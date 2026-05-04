@@ -468,7 +468,7 @@ class GiftCodeRedeemer:
             if not fids_to_process_now and fids_in_cooldown_count > 0:
                 next_retry_time = min(retry_queue[fid] for fid in all_player_ids
                                       if fid not in processed_fids and fid in retry_queue)
-                wait_time = max(1, min(30, next_retry_time - current_time + 1))
+                wait_time = max(1, min(30, int(next_retry_time - current_time)))
                 self.log(f"{fids_in_cooldown_count} 个玩家冷却中，等待 {int(wait_time)} 秒... 进度: {len(processed_fids)}/{len(all_player_ids)}")
                 time.sleep(wait_time)
                 continue

@@ -100,18 +100,15 @@ class PlayerListSidebar:
         def _on_mousewheel(ev):
             self.id_canvas.yview_scroll(int(-1 * (ev.delta / 120)), "units")
 
-        def _bound_to_mousewheel(ev):
-            self.id_canvas.bind_all("<MouseWheel>", _on_mousewheel)
-            self.id_canvas.bind_all("<Button-4>", lambda e: self.id_canvas.yview_scroll(-3, "units"))
-            self.id_canvas.bind_all("<Button-5>", lambda e: self.id_canvas.yview_scroll(3, "units"))
+        def _on_button4(ev):
+            self.id_canvas.yview_scroll(-3, "units")
 
-        def _unbound_from_mousewheel(ev):
-            self.id_canvas.unbind_all("<MouseWheel>")
-            self.id_canvas.unbind_all("<Button-4>")
-            self.id_canvas.unbind_all("<Button-5>")
+        def _on_button5(ev):
+            self.id_canvas.yview_scroll(3, "units")
 
-        self.id_canvas.bind("<Enter>", _bound_to_mousewheel)
-        self.id_canvas.bind("<Leave>", _unbound_from_mousewheel)
+        self.id_canvas.bind("<MouseWheel>", _on_mousewheel)
+        self.id_canvas.bind("<Button-4>", _on_button4)
+        self.id_canvas.bind("<Button-5>", _on_button5)
 
         self.page_frame = ttk.Frame(self.frame)
         self.page_frame.pack(fill=tk.X, padx=8, pady=(4, 8))

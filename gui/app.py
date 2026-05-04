@@ -28,7 +28,7 @@ class GiftCodeApp:
 
         self.root.title("Whiteout Survival 礼包码兑换工具 v4.0")
         self.root.resizable(True, True)
-        self.root.minsize(900, 600)
+        self.root.minsize(900, 620)
 
         self._build_ui()
         self._init_redeemer()
@@ -144,7 +144,7 @@ class GiftCodeApp:
         self.log_info_label.pack(side=tk.RIGHT, padx=(0, 8))
         self.root.after(500, self._update_log_info)
 
-        self.log_text = scrolledtext.ScrolledText(log_frame, height=12, state=tk.DISABLED,
+        self.log_text = scrolledtext.ScrolledText(log_frame, height=8, state=tk.DISABLED,
                                                    font=("Consolas", 9), wrap=tk.WORD)
         self.log_text.pack(fill=tk.BOTH, expand=True)
 

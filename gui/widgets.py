@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 
 
-ITEMS_PER_PAGE = 50
+ITEMS_PER_PAGE = 15
 
 PLAYER_FILES = ["playerR0.csv", "playerR1.csv", "playerR2.csv", "playerR3.csv", "playerR4R5.csv"]
 
