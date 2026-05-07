@@ -137,7 +137,16 @@ class GiftCodeRedeemer:
                     captcha_data = response.json()
                     if captcha_data.get("code") == 1 and "TOO FREQUENT" in captcha_data.get("msg", "").upper():
                         self.log(f"{nickname}({fid}) - 验证码请求被限流，加入重试队列", level='warn')
-                        retry_queue[fid] = current_time + CAPTCHA_SLEEP
+                        retry_count = retry_queue.get(f"{fid}_retry_count", 0) + 1
+                        if retry_count >= 3:
+                            self.log(f"{nickname}({fid}) - 已重试 {retry_count} 次，放弃处理", level='error')
+                            retry_queue[f"{fid}_retry_count"] = retry_count
+                            self.counters["captcha_rate_limited"] += 1
+                            return None, None, retry_queue, "RateLimited"
+                        sleep_time = CAPTCHA_SLEEP * (2 ** (retry_count - 1))
+                        retry_queue[fid] = time.time() + sleep_time
+                        retry_queue[f"{fid}_retry_count"] = retry_count
+                        self.log(f"{nickname}({fid}) - 第 {retry_count} 次重试，等待 {sleep_time} 秒", level='warn')
                         self.counters["captcha_rate_limited"] += 1
                         return None, None, retry_queue, "RateLimited"
 
@@ -218,7 +227,7 @@ class GiftCodeRedeemer:
                 time.sleep(random.uniform(1.5, 3.0))
 
         self.log(f"{nickname}({fid}) - 验证码获取/识别失败（已尝试 {attempts} 次），加入重试队列", level='error')
-        retry_queue[fid] = current_time + CAPTCHA_SLEEP
+        retry_queue[fid] = time.time() + CAPTCHA_SLEEP
         return None, retry_queue, "Fetch/Solve Failed"
 
     def redeem_gift_code(self, fid, cdk, nickname, retry_queue):
@@ -285,7 +294,15 @@ class GiftCodeRedeemer:
 
                     elif is_captcha_rate_limit:
                         self.log(f"{nickname}({fid}) - 验证码请求过于频繁，加入重试队列", level='warn')
-                        retry_queue[fid] = time.time() + CAPTCHA_SLEEP
+                        retry_count = retry_queue.get(f"{fid}_retry_count", 0) + 1
+                        if retry_count >= 3:
+                            self.log(f"{nickname}({fid}) - 已重试 {retry_count} 次，放弃处理", level='error')
+                            final_redeem_data = {"msg": "Too many retries"}
+                            break
+                        sleep_time = CAPTCHA_SLEEP * (2 ** (retry_count - 1))
+                        retry_queue[fid] = time.time() + sleep_time
+                        retry_queue[f"{fid}_retry_count"] = retry_count
+                        self.log(f"{nickname}({fid}) - 第 {retry_count} 次重试，等待 {sleep_time} 秒", level='warn')
                         self.counters["captcha_rate_limited"] += 1
                         self.counters["captcha_redeem_failure"] += 1
                         break
@@ -468,9 +485,21 @@ class GiftCodeRedeemer:
             if not fids_to_process_now and fids_in_cooldown_count > 0:
                 next_retry_time = min(retry_queue[fid] for fid in all_player_ids
                                       if fid not in processed_fids and fid in retry_queue)
-                wait_time = max(1, min(30, int(next_retry_time - current_time)))
-                self.log(f"{fids_in_cooldown_count} 个玩家冷却中，等待 {int(wait_time)} 秒... 进度: {len(processed_fids)}/{len(all_player_ids)}")
-                time.sleep(wait_time)
+                current_time_at_wait = time.time()
+                remaining_time = max(0, int(next_retry_time - current_time_at_wait))
+                
+                if remaining_time > 0:
+                    self.log(f"{fids_in_cooldown_count} 个玩家冷却中，等待 {remaining_time} 秒... 进度: {len(processed_fids)}/{len(all_player_ids)}")
+                    
+                    wait_remaining = remaining_time
+                    while wait_remaining > 0 and not self.stop_flag:
+                        wait_chunk = min(1, wait_remaining)
+                        time.sleep(wait_chunk)
+                        wait_remaining -= 1
+                    
+                    if self.stop_flag:
+                        self.log("检测到停止信号，退出处理", level='warn')
+                        stop_processing = True
                 continue
 
             if not fids_to_process_now and fids_in_cooldown_count == 0:
