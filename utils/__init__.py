@@ -208,3 +208,8 @@ class LogManager:
             return {"timestamp": None, "message": line.strip(), "valid": False}
         except Exception:
             return {"timestamp": None, "message": line.strip(), "valid": False}
+
+
+from .name_history import NameHistoryManager
+
+__all__ = ['LogManager', 'NameHistoryManager']

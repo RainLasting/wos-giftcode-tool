@@ -10,7 +10,7 @@ from core import GiftCodeRedeemer, ONNX_AVAILABLE, LOGIN_URL
 from scraper import GiftCodeScraper, BS4_AVAILABLE
 from .idlist import PlayerListSidebar
 from .widgets import PLAYER_FILES, RIGHT_SIDEBAR_WIDTH, WIKI_GIFTCODES_URL, WIKI_HOME_URL
-from utils import LogManager
+from utils import LogManager, NameHistoryManager
 
 
 class GiftCodeApp:
@@ -25,6 +25,7 @@ class GiftCodeApp:
         self.left_sidebar_visible = False
         self.scrape_result = None
         self.code_buttons = []
+        self.name_history_manager = None
 
         self.root.title("Whiteout Survival 礼包码兑换工具 v4.0")
         self.root.resizable(True, True)
@@ -33,6 +34,7 @@ class GiftCodeApp:
         self._build_ui()
         self._init_redeemer()
         self._init_scraper()
+        self._init_name_history_manager()
         self.root.after(300, self._auto_expand_sidebars)
 
     def _build_ui(self):
@@ -47,7 +49,8 @@ class GiftCodeApp:
             redeemer=None,
             app_path=self.app_path,
             log_callback=self._on_log,
-            on_switch_file=self._toggle_left_sidebar
+            on_switch_file=self._toggle_left_sidebar,
+            name_history_manager=None
         )
 
         self.right_sidebar_frame = ttk.Frame(self.outer_frame, width=RIGHT_SIDEBAR_WIDTH)
@@ -269,7 +272,13 @@ class GiftCodeApp:
     def _init_scraper(self):
         self.scraper = GiftCodeScraper(status_callback=self._on_scrape_status)
 
+    def _init_name_history_manager(self):
+        self.name_history_manager = NameHistoryManager(self.app_path)
+        self.left_sidebar.name_history_manager = self.name_history_manager
+
     def _on_name_updated(self, fid, name):
+        if self.name_history_manager:
+            self.name_history_manager.update_name(fid, name)
         self.root.after(0, lambda: self.left_sidebar.refresh())
 
     def _on_scrape_status(self, message, level='info'):

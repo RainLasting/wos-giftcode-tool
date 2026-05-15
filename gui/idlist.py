@@ -6,12 +6,13 @@ from .widgets import ITEMS_PER_PAGE, PLAYER_FILES, LEFT_SIDEBAR_WIDTH
 
 
 class PlayerListSidebar:
-    def __init__(self, parent, redeemer, app_path, log_callback, on_switch_file=None):
+    def __init__(self, parent, redeemer, app_path, log_callback, on_switch_file=None, name_history_manager=None):
         self.parent = parent
         self.redeemer = redeemer
         self.app_path = app_path
         self.log_callback = log_callback
         self.on_switch_file = on_switch_file
+        self.name_history_manager = name_history_manager
 
         self.frame = ttk.Frame(parent, width=LEFT_SIDEBAR_WIDTH)
         self.frame.pack_propagate(False)
@@ -301,6 +302,7 @@ class PlayerListSidebar:
         menu = tk.Menu(self.parent, tearoff=0)
         menu.add_command(label=f"删除 {fid}", command=lambda: self._delete_id(fid))
         menu.add_command(label=f"编辑 {fid}", command=lambda: self._edit_id_dialog(fid))
+        menu.add_command(label=f"查看曾用名", command=lambda: self._show_name_history(fid))
 
         current = self.current_file_var.get()
         target_files = [f for f in PLAYER_FILES if f != current]
@@ -311,6 +313,68 @@ class PlayerListSidebar:
             menu.add_cascade(label="添加至其他分组", menu=move_menu)
 
         menu.tk_popup(event.x_root, event.y_root)
+
+    def _show_name_history(self, fid):
+        if not hasattr(self, 'name_history_manager') or not self.name_history_manager:
+            messagebox.showinfo("提示", "曾用名管理器未初始化")
+            return
+
+        history = self.name_history_manager.get_name_history(fid)
+        if not history:
+            messagebox.showinfo("提示", f"未找到玩家 {fid} 的曾用名记录")
+            return
+
+        dialog = tk.Toplevel(self.parent)
+        dialog.title(f"玩家 {fid} 的曾用名")
+        dialog.geometry("450x400")
+        dialog.resizable(True, True)
+        dialog.transient(self.parent)
+        dialog.grab_set()
+
+        screen_width = dialog.winfo_screenwidth()
+        screen_height = dialog.winfo_screenheight()
+        dialog_x = (screen_width - 450) // 2
+        dialog_y = (screen_height - 400) // 2
+        dialog.geometry(f"450x400+{dialog_x}+{dialog_y}")
+
+        header_frame = ttk.Frame(dialog, padding="10")
+        header_frame.pack(fill=tk.X, padx=10, pady=(10, 0))
+        ttk.Label(header_frame, text=f"玩家 ID: {fid}", font=('Arial', 12, 'bold')).pack(anchor=tk.W)
+        ttk.Label(header_frame, text=f"名字变更次数: {len(history) - 1} 次", font=('Arial', 10)).pack(anchor=tk.W)
+
+        canvas = tk.Canvas(dialog)
+        scrollbar = ttk.Scrollbar(dialog, orient=tk.VERTICAL, command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        for i, name in enumerate(history):
+            bg_color = "#f0f0f0" if i % 2 == 0 else "#ffffff"
+            row_frame = ttk.Frame(scrollable_frame, padding="5 3")
+            row_frame.pack(fill=tk.X, padx=10, pady=2)
+
+            order_label = ttk.Label(row_frame, text=f"{i + 1}.", width=4, anchor=tk.W)
+            order_label.pack(side=tk.LEFT, padx=(0, 5))
+
+            name_label = ttk.Label(row_frame, text=name, width=30, anchor=tk.W)
+            name_label.pack(side=tk.LEFT)
+
+            if i == len(history) - 1:
+                tag_label = ttk.Label(row_frame, text="(当前)", foreground="#008000", font=('Arial', 9, 'bold'))
+                tag_label.pack(side=tk.RIGHT)
+
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10, pady=10)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y, pady=10)
+
+        button_frame = ttk.Frame(dialog, padding="10")
+        button_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
+        ttk.Button(button_frame, text="关闭", command=dialog.destroy).pack(side=tk.RIGHT)
 
     def _move_player_to_file(self, fid, target_file):
         import time
