@@ -211,5 +211,6 @@ class LogManager:
 
 
 from .name_history import NameHistoryManager
+from .bt_manager import BTManager
 
-__all__ = ['LogManager', 'NameHistoryManager']
+__all__ = ['LogManager', 'NameHistoryManager', 'BTManager']

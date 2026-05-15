@@ -10,7 +10,7 @@ from core import GiftCodeRedeemer, ONNX_AVAILABLE, LOGIN_URL
 from scraper import GiftCodeScraper, BS4_AVAILABLE
 from .idlist import PlayerListSidebar
 from .widgets import PLAYER_FILES, RIGHT_SIDEBAR_WIDTH, WIKI_GIFTCODES_URL, WIKI_HOME_URL
-from utils import LogManager, NameHistoryManager
+from utils import LogManager, NameHistoryManager, BTManager
 
 
 class GiftCodeApp:
@@ -26,6 +26,7 @@ class GiftCodeApp:
         self.scrape_result = None
         self.code_buttons = []
         self.name_history_manager = None
+        self.bt_manager = None
 
         self.root.title("Whiteout Survival 礼包码兑换工具 v4.0")
         self.root.resizable(True, True)
@@ -35,6 +36,7 @@ class GiftCodeApp:
         self._init_redeemer()
         self._init_scraper()
         self._init_name_history_manager()
+        self._init_bt_manager()
         self.root.after(300, self._auto_expand_sidebars)
 
     def _build_ui(self):
@@ -50,7 +52,8 @@ class GiftCodeApp:
             app_path=self.app_path,
             log_callback=self._on_log,
             on_switch_file=self._toggle_left_sidebar,
-            name_history_manager=None
+            name_history_manager=None,
+            bt_manager=None
         )
 
         self.right_sidebar_frame = ttk.Frame(self.outer_frame, width=RIGHT_SIDEBAR_WIDTH)
@@ -276,9 +279,16 @@ class GiftCodeApp:
         self.name_history_manager = NameHistoryManager(self.app_path)
         self.left_sidebar.name_history_manager = self.name_history_manager
 
+    def _init_bt_manager(self):
+        self.bt_manager = BTManager(self.app_path)
+        self.left_sidebar.bt_manager = self.bt_manager
+
     def _on_name_updated(self, fid, name):
         if self.name_history_manager:
             self.name_history_manager.update_name(fid, name)
+        if self.bt_manager:
+            self.bt_manager.ensure_player_exists(fid, name, bt_type=1)
+            self.bt_manager.ensure_player_exists(fid, name, bt_type=2)
         self.root.after(0, lambda: self.left_sidebar.refresh())
 
     def _on_scrape_status(self, message, level='info'):

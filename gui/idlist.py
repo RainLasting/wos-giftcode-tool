@@ -6,13 +6,14 @@ from .widgets import ITEMS_PER_PAGE, PLAYER_FILES, LEFT_SIDEBAR_WIDTH
 
 
 class PlayerListSidebar:
-    def __init__(self, parent, redeemer, app_path, log_callback, on_switch_file=None, name_history_manager=None):
+    def __init__(self, parent, redeemer, app_path, log_callback, on_switch_file=None, name_history_manager=None, bt_manager=None):
         self.parent = parent
         self.redeemer = redeemer
         self.app_path = app_path
         self.log_callback = log_callback
         self.on_switch_file = on_switch_file
         self.name_history_manager = name_history_manager
+        self.bt_manager = bt_manager
 
         self.frame = ttk.Frame(parent, width=LEFT_SIDEBAR_WIDTH)
         self.frame.pack_propagate(False)
@@ -67,6 +68,21 @@ class PlayerListSidebar:
 
         add_btn = ttk.Button(input_frame, text="添加", command=self._add_new_id, width=5)
         add_btn.pack(side=tk.LEFT)
+
+        bt_frame = ttk.Frame(self.frame)
+        bt_frame.pack(fill=tk.X, padx=8, pady=(4, 2))
+
+        self.bt1_add_btn = ttk.Button(bt_frame, text="添加BT1", command=self._on_add_bt1, width=7)
+        self.bt1_add_btn.pack(side=tk.LEFT, padx=(0, 2))
+
+        self.bt1_sub_btn = ttk.Button(bt_frame, text="减少BT1", command=self._on_sub_bt1, width=7)
+        self.bt1_sub_btn.pack(side=tk.LEFT, padx=(2, 2))
+
+        self.bt2_add_btn = ttk.Button(bt_frame, text="添加BT2", command=self._on_add_bt2, width=7)
+        self.bt2_add_btn.pack(side=tk.LEFT, padx=(2, 2))
+
+        self.bt2_sub_btn = ttk.Button(bt_frame, text="减少BT2", command=self._on_sub_bt2, width=7)
+        self.bt2_sub_btn.pack(side=tk.LEFT, padx=(2, 0))
 
         select_all_frame = ttk.Frame(self.frame)
         select_all_frame.pack(fill=tk.X, padx=8, pady=(2, 0))
@@ -205,7 +221,14 @@ class PlayerListSidebar:
         for row in page_rows:
             fid = row["fid"]
             name = row["name"]
-            display_text = f"{fid}:{name}" if name else fid
+            
+            bt1_count = 0
+            bt2_count = 0
+            if self.bt_manager:
+                bt1_count = self.bt_manager.get_bt_count(fid, bt_type=1)
+                bt2_count = self.bt_manager.get_bt_count(fid, bt_type=2)
+            
+            display_text = f"BT1:{bt1_count} BT2:{bt2_count} {fid}:{name}" if name else f"BT1:{bt1_count} BT2:{bt2_count} {fid}"
 
             var = self.id_checkbox_vars.get(fid)
             if var is None:
@@ -535,3 +558,53 @@ class PlayerListSidebar:
 
     def pack(self, **kwargs):
         self.frame.pack(**kwargs)
+
+    def _on_add_bt1(self):
+        self._update_bt_count(bt_type=1, delta=1)
+
+    def _on_sub_bt1(self):
+        self._update_bt_count(bt_type=1, delta=-1)
+
+    def _on_add_bt2(self):
+        self._update_bt_count(bt_type=2, delta=1)
+
+    def _on_sub_bt2(self):
+        self._update_bt_count(bt_type=2, delta=-1)
+
+    def _update_bt_count(self, bt_type=1, delta=1):
+        if not self.bt_manager:
+            messagebox.showwarning("提示", "BT管理器未初始化")
+            return
+
+        selected_fids = self._get_selected_fids()
+        if not selected_fids:
+            messagebox.showwarning("提示", "请先选择玩家")
+            return
+
+        current_file = self.current_file_var.get()
+        allowed_files = ["playerR1.csv", "playerR2.csv", "playerR3.csv", "playerR4R5.csv"]
+        if current_file not in allowed_files:
+            messagebox.showwarning("提示", f"只能从 {', '.join(allowed_files)} 中添加玩家到BT名单")
+            return
+
+        csv_path = self._get_csv_path()
+        source_rows = self.redeemer.read_csv_with_names(csv_path)
+
+        success_count = 0
+        for fid in selected_fids:
+            player_row = next((r for r in source_rows if r["fid"] == fid), None)
+            if player_row:
+                name = player_row.get("name", "")
+                if delta > 0:
+                    self.bt_manager.add_bt(fid, name, bt_type=bt_type)
+                else:
+                    self.bt_manager.subtract_bt(fid, name, bt_type=bt_type)
+                success_count += 1
+
+        bt_name = "BT1" if bt_type == 1 else "BT2"
+        action = "增加" if delta > 0 else "减少"
+        self._log(f"{bt_name}{action}成功，共 {success_count} 个玩家", level='success')
+        self._refresh_id_list()
+
+    def _get_selected_fids(self):
+        return [fid for fid, var in self.id_checkbox_vars.items() if var.get()]
