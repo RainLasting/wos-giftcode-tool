@@ -47,6 +47,9 @@ type nul > "dist\playerR1.csv"
 type nul > "dist\playerR2.csv"
 type nul > "dist\playerR3.csv"
 type nul > "dist\playerR4R5.csv"
+type nul > "dist\playerFARM.csv"
+type nul > "dist\playerEXITED.csv"
+type nul > "dist\playerALLY.csv"
 
 echo Verifying dist structure...
 if not exist "dist\WOSGiftCodeTool.exe" (

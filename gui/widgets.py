@@ -4,7 +4,7 @@ from tkinter import ttk
 
 ITEMS_PER_PAGE = 15
 
-PLAYER_FILES = ["playerR0.csv", "playerR1.csv", "playerR2.csv", "playerR3.csv", "playerR4R5.csv"]
+PLAYER_FILES = ["playerR0.csv", "playerR1.csv", "playerR2.csv", "playerR3.csv", "playerR4R5.csv", "playerFARM.csv", "playerEXITED.csv", "playerALLY.csv"]
 
 RIGHT_SIDEBAR_WIDTH = 300
 LEFT_SIDEBAR_WIDTH = 300
