@@ -108,7 +108,8 @@ class PlayerListSidebar:
                                       command=self.id_canvas.yview)
         self.id_inner_frame = tk.Frame(self.id_canvas, bg="#F5F5F5")
 
-        self.id_canvas.create_window((0, 0), window=self.id_inner_frame, anchor=tk.NW, width=260)
+        inner_width = LEFT_SIDEBAR_WIDTH - 20
+        self.id_canvas.create_window((0, 0), window=self.id_inner_frame, anchor=tk.NW, width=inner_width)
         self.id_canvas.configure(yscrollcommand=id_scrollbar.set)
 
         self.id_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)

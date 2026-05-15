@@ -2,12 +2,12 @@ import tkinter as tk
 from tkinter import ttk
 
 
-ITEMS_PER_PAGE = 15
+ITEMS_PER_PAGE = 20
 
 PLAYER_FILES = ["playerR0.csv", "playerR1.csv", "playerR2.csv", "playerR3.csv", "playerR4R5.csv", "playerFARM.csv", "playerEXITED.csv", "playerALLY.csv"]
 
-RIGHT_SIDEBAR_WIDTH = 300
-LEFT_SIDEBAR_WIDTH = 300
+RIGHT_SIDEBAR_WIDTH = 350
+LEFT_SIDEBAR_WIDTH = 350
 
 WIKI_GIFTCODES_URL = "https://www.whiteoutsurvival.wiki/giftcodes/"
 WIKI_HOME_URL = "https://www.whiteoutsurvival.wiki/tw/"

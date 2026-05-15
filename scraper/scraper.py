@@ -3,11 +3,21 @@ from .extractors import CodeExtractors, BS4_AVAILABLE
 
 SOURCE_URLS = [
     {
+        "url": "https://wosgiftcodes.com/rss.php",
+        "name": "RSS Feed",
+        "priority": 1,
+        "type": "rss",
+    },
+    {
         "url": "https://www.whiteoutsurvival.wiki/giftcodes/",
         "name": "Official Wiki",
-        "priority": 1,
+        "priority": 2,
+        "type": "html",
     },
 ]
+
+RSS_FEED_URL = "https://wosgiftcodes.com/rss.php"
+WIKI_FEED_URL = "https://www.whiteoutsurvival.wiki/giftcodes/"
 
 
 class CloudflareBlockError(Exception):
@@ -68,13 +78,40 @@ class GiftCodeScraper:
 
         return response.text, response.status_code
 
+    def _parse_rss(self, xml_content):
+        try:
+            import xml.etree.ElementTree as ET
+            root = ET.fromstring(xml_content)
+        except ET.ParseError as e:
+            self._status(f"RSS 解析失败: XML 格式错误", level='error')
+            return None, None, f"XML 解析错误: {str(e)[:50]}"
+        except Exception as e:
+            self._status(f"RSS 解析失败: {e}", level='error')
+            return None, None, str(e)[:100]
+
+        codes = []
+        for item in root.findall('.//item'):
+            title = item.find('title')
+            if title is not None and title.text:
+                code_text = title.text.strip()
+                if code_text:
+                    codes.append(code_text)
+
+        if not codes:
+            self._status("RSS 未找到有效礼包码", level='warn')
+            return [], None, None
+
+        self._status(f"从 RSS 获取到 {len(codes)} 个礼包码")
+        return codes, None, None
+
     def _scrape_source(self, source):
         url = source["url"]
         name = source["name"]
+        source_type = source.get("type", "html")
         self._status(f"正在从 {name} 获取礼包码...")
 
         try:
-            html, status_code = self._fetch_page(url)
+            content, status_code = self._fetch_page(url)
         except CloudflareBlockError as e:
             self._status(f"{name} 被 Cloudflare 防护拦截（HTTP {e.status_code}），跳过", level='warn')
             return None, None, f"Cloudflare 防护拦截（HTTP {e.status_code}）"
@@ -92,11 +129,14 @@ class GiftCodeScraper:
             self._status(f"{name} 爬取出错: {e}", level='error')
             return None, None, str(e)[:100]
 
+        if source_type == "rss":
+            return self._parse_rss(content)
+
         if not BS4_AVAILABLE:
             return None, None, "beautifulsoup4 未安装"
 
         from bs4 import BeautifulSoup
-        soup = BeautifulSoup(html, "html.parser")
+        soup = BeautifulSoup(content, "html.parser")
 
         title_text = soup.title.string.lower() if soup.title else ''
         if 'just a moment' in title_text or 'checking your browser' in title_text:
@@ -121,16 +161,22 @@ class GiftCodeScraper:
 
         return working, expired, article_date
 
-    def scrape(self):
-        if not BS4_AVAILABLE:
-            self._status("错误：beautifulsoup4 未安装，无法爬取礼包码", level='error')
+    def scrape(self, source_type=None):
+        if not BS4_AVAILABLE and source_type != "rss":
+            self._status("错误：beautifulsoup4 未安装，无法爬取 Wiki 礼包码", level='error')
             return {"codes": [], "error": "beautifulsoup4 未安装"}
 
         self.running = True
         working_codes = []
         last_error = None
 
-        for source in SOURCE_URLS:
+        sources_to_scrape = SOURCE_URLS
+        if source_type:
+            sources_to_scrape = [s for s in SOURCE_URLS if s.get("type", "html") == source_type]
+            if not sources_to_scrape:
+                sources_to_scrape = SOURCE_URLS
+
+        for source in sources_to_scrape:
             if not self.running:
                 break
 
@@ -141,7 +187,7 @@ class GiftCodeScraper:
                 last_error = date_or_error
                 continue
 
-            expired_set = set(expired)
+            expired_set = set(expired) if expired else set()
             working_set = set(working) - expired_set
 
             if working_set:

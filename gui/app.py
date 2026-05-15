@@ -7,7 +7,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext
 
 from core import GiftCodeRedeemer, ONNX_AVAILABLE, LOGIN_URL
-from scraper import GiftCodeScraper, BS4_AVAILABLE
+from scraper import GiftCodeScraper, BS4_AVAILABLE, RSS_FEED_URL, WIKI_FEED_URL
 from .idlist import PlayerListSidebar
 from .widgets import PLAYER_FILES, RIGHT_SIDEBAR_WIDTH, WIKI_GIFTCODES_URL, WIKI_HOME_URL
 from utils import LogManager, NameHistoryManager, BTManager
@@ -27,10 +27,11 @@ class GiftCodeApp:
         self.code_buttons = []
         self.name_history_manager = None
         self.bt_manager = None
+        self.current_source = "rss"
 
         self.root.title("Whiteout Survival 礼包码兑换工具 v4.0")
         self.root.resizable(True, True)
-        self.root.minsize(900, 620)
+        self.root.minsize(950, 800)
 
         self._build_ui()
         self._init_redeemer()
@@ -177,15 +178,29 @@ class GiftCodeApp:
 
         wiki_codes_btn = ttk.Button(self.right_sidebar_frame, text="🌐 Wiki礼包码界面",
                                      command=self._open_wiki_giftcodes)
-        wiki_codes_btn.pack(fill=tk.X, padx=8, pady=(0, 6))
+        wiki_codes_btn.pack(fill=tk.X, padx=8, pady=(0, 3))
+
+        rss_codes_btn = ttk.Button(self.right_sidebar_frame, text="🌐 RSS礼包码界面",
+                                    command=self._open_rss_giftcodes)
+        rss_codes_btn.pack(fill=tk.X, padx=8, pady=(0, 6))
 
         self.scrape_status_label = ttk.Label(self.right_sidebar_frame, text="", foreground="gray")
         self.scrape_status_label.pack(fill=tk.X, padx=8, pady=(0, 4))
 
         ttk.Separator(self.right_sidebar_frame, orient=tk.HORIZONTAL).pack(fill=tk.X, padx=8, pady=(0, 4))
 
-        ttk.Label(self.right_sidebar_frame, text="来源：Official Wiki",
-                  font=("Microsoft YaHei UI", 9)).pack(anchor=tk.W, padx=8, pady=(0, 4))
+        source_frame = ttk.Frame(self.right_sidebar_frame)
+        source_frame.pack(fill=tk.X, padx=8, pady=(0, 4))
+
+        ttk.Label(source_frame, text="来源：", font=("Microsoft YaHei UI", 9)).pack(side=tk.LEFT)
+
+        self.rss_btn = ttk.Button(source_frame, text="RSS", command=lambda: self._switch_source("rss"), width=6)
+        self.rss_btn.pack(side=tk.LEFT, padx=(0, 4))
+
+        self.wiki_btn = ttk.Button(source_frame, text="Wiki", command=lambda: self._switch_source("wiki"), width=6)
+        self.wiki_btn.pack(side=tk.LEFT)
+
+        self._update_source_buttons()
 
         ttk.Label(self.right_sidebar_frame, text="✅ 有效礼包码",
                   font=("Microsoft YaHei UI", 10, "bold")).pack(anchor=tk.W, padx=8, pady=(0, 4))
@@ -201,7 +216,8 @@ class GiftCodeApp:
         self.codes_inner_frame.bind("<Configure>",
             lambda e: self.codes_canvas.configure(scrollregion=self.codes_canvas.bbox("all")))
 
-        self.codes_canvas.create_window((0, 0), window=self.codes_inner_frame, anchor=tk.NW)
+        inner_width = RIGHT_SIDEBAR_WIDTH - 28
+        self.codes_canvas.create_window((0, 0), window=self.codes_inner_frame, anchor=tk.NW, width=inner_width)
         self.codes_canvas.configure(yscrollcommand=codes_scrollbar.set)
 
         self.codes_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -218,6 +234,9 @@ class GiftCodeApp:
 
     def _open_wiki_giftcodes(self):
         webbrowser.open(WIKI_GIFTCODES_URL)
+
+    def _open_rss_giftcodes(self):
+        webbrowser.open("https://wosgiftcodes.com")
 
     def _toggle_left_sidebar(self):
         if self.left_sidebar_visible:
@@ -297,8 +316,21 @@ class GiftCodeApp:
             self.scrape_status_label.configure(text=message, foreground=color_map.get(level, 'gray'))
         self.root.after(0, _update)
 
+    def _switch_source(self, source):
+        self.current_source = source
+        self._update_source_buttons()
+        self._start_scrape()
+
+    def _update_source_buttons(self):
+        if self.current_source == "rss":
+            self.rss_btn.configure(style='Accent.TButton' if hasattr(ttk.Style(), 'Accent') else '')
+            self.wiki_btn.configure(style='')
+        else:
+            self.rss_btn.configure(style='')
+            self.wiki_btn.configure(style='Accent.TButton' if hasattr(ttk.Style(), 'Accent') else '')
+
     def _start_scrape(self):
-        if not BS4_AVAILABLE:
+        if not BS4_AVAILABLE and self.current_source == "wiki":
             self.scrape_status_label.configure(text="错误：beautifulsoup4 未安装", foreground="#F44336")
             return
 
@@ -309,7 +341,8 @@ class GiftCodeApp:
         self.scrape_status_label.configure(text="正在获取礼包码...", foreground="#2196F3")
 
         def run_scrape():
-            result = self.scraper.scrape()
+            source_type = self.current_source if self.current_source in ["rss", "wiki"] else None
+            result = self.scraper.scrape(source_type=source_type)
             self.root.after(0, lambda: self._on_scrape_complete(result))
 
         self.scrape_thread = threading.Thread(target=run_scrape, daemon=True)
