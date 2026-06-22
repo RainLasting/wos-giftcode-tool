@@ -10,7 +10,7 @@ from core import GiftCodeRedeemer, ONNX_AVAILABLE, LOGIN_URL
 from scraper import GiftCodeScraper, BS4_AVAILABLE, RSS_FEED_URL, WIKI_FEED_URL
 from .idlist import PlayerListSidebar
 from .widgets import PLAYER_FILES, RIGHT_SIDEBAR_WIDTH, WIKI_GIFTCODES_URL, WIKI_HOME_URL
-from utils import LogManager, NameHistoryManager, BTManager
+from utils import LogManager, NameHistoryManager, BTManager, GiftCodeScheduler
 
 
 class GiftCodeApp:
@@ -27,6 +27,7 @@ class GiftCodeApp:
         self.code_buttons = []
         self.name_history_manager = None
         self.bt_manager = None
+        self.scheduler = None
         self.current_source = "rss"
 
         self.root.title("Whiteout Survival 礼包码兑换工具 v4.0")
@@ -38,6 +39,7 @@ class GiftCodeApp:
         self._init_scraper()
         self._init_name_history_manager()
         self._init_bt_manager()
+        self._init_scheduler()
         self.root.after(300, self._auto_expand_sidebars)
 
     def _build_ui(self):
@@ -71,6 +73,21 @@ class GiftCodeApp:
         title_label = ttk.Label(top_bar, text="Whiteout Survival 礼包码兑换工具",
                                 font=("Microsoft YaHei UI", 14, "bold"))
         title_label.pack(side=tk.LEFT)
+
+        self.scheduler_frame = ttk.Frame(top_bar)
+        self.scheduler_frame.pack(side=tk.LEFT, padx=(20, 0))
+
+        self.scheduler_toggle_btn = ttk.Button(self.scheduler_frame, text="定时检查: OFF", width=14,
+                                                command=self._toggle_scheduler)
+        self.scheduler_toggle_btn.pack(side=tk.LEFT, padx=(0, 4))
+
+        self.scheduler_check_btn = ttk.Button(self.scheduler_frame, text="立即检查", width=8,
+                                               command=self._scheduler_check_now)
+        self.scheduler_check_btn.pack(side=tk.LEFT)
+
+        self.scheduler_status_label = ttk.Label(self.scheduler_frame, text="",
+                                                 font=("Microsoft YaHei UI", 8))
+        self.scheduler_status_label.pack(side=tk.LEFT, padx=(4, 0))
 
         btn_bar = ttk.Frame(top_bar)
         btn_bar.pack(side=tk.RIGHT)
@@ -302,6 +319,68 @@ class GiftCodeApp:
         self.bt_manager = BTManager(self.app_path)
         self.left_sidebar.bt_manager = self.bt_manager
 
+    def _init_scheduler(self):
+        self.scheduler = GiftCodeScheduler(
+            app_path=self.app_path,
+            scraper=self.scraper,
+            redeemer=self.redeemer,
+            log_callback=self._on_log,
+            status_callback=self._scheduler_status_callback,
+        )
+
+    def _toggle_scheduler(self):
+        if self.scheduler.enabled:
+            self.scheduler.stop()
+            self._update_scheduler_ui()
+        else:
+            confirm = messagebox.askyesno(
+                "启动定时检查",
+                "即将启动自动定时检查功能：\n\n"
+                "• 每60分钟自动检查一次礼包码变更\n"
+                "• 检测到新礼包码时，将按以下顺序自动兑换：\n"
+                "  R4R5 → R3 → R2 → R1 → R0 → FARM → ALLY\n"
+                "• 兑换过程将使用当前选中的兑换设置\n\n"
+                "是否确认启动？"
+            )
+            if confirm:
+                self.scheduler.start()
+                self._update_scheduler_ui()
+
+    def _scheduler_check_now(self):
+        if self.scheduler:
+            self.scheduler.check_now()
+
+    def _scheduler_status_callback(self, status):
+        self.root.after(0, lambda: self._update_scheduler_ui())
+
+    def _update_scheduler_ui(self):
+        if not self.scheduler:
+            return
+
+        if self.scheduler.enabled:
+            self.scheduler_toggle_btn.configure(text="定时检查: ON")
+            status = self.scheduler._status
+            status_text = {
+                "idle": "就绪",
+                "monitoring": "监控中",
+                "checking": "检查中...",
+                "redeeming": "兑换中...",
+                "error": "错误",
+            }
+            self.scheduler_status_label.configure(
+                text=status_text.get(status, status),
+                foreground={
+                    "idle": "gray",
+                    "monitoring": "#4CAF50",
+                    "checking": "#2196F3",
+                    "redeeming": "#FF9800",
+                    "error": "#F44336",
+                }.get(status, "gray")
+            )
+        else:
+            self.scheduler_toggle_btn.configure(text="定时检查: OFF")
+            self.scheduler_status_label.configure(text="", foreground="gray")
+
     def _on_name_updated(self, fid, name):
         if self.name_history_manager:
             self.name_history_manager.update_name(fid, name)
@@ -466,6 +545,9 @@ class GiftCodeApp:
         self.redeem_thread.start()
 
     def stop_redeem(self):
+        if self.scheduler and self.scheduler.enabled:
+            self.scheduler.stop()
+            self._update_scheduler_ui()
         if self.redeemer and self.redeemer.running:
             self.redeemer.stop()
             self._on_log("正在停止兑换...", level='warn')

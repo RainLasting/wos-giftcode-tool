@@ -212,5 +212,6 @@ class LogManager:
 
 from .name_history import NameHistoryManager
 from .bt_manager import BTManager
+from .scheduler import GiftCodeScheduler, AUTO_REDEEM_ORDER
 
-__all__ = ['LogManager', 'NameHistoryManager', 'BTManager']
+__all__ = ['LogManager', 'NameHistoryManager', 'BTManager', 'GiftCodeScheduler', 'AUTO_REDEEM_ORDER']
